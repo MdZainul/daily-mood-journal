@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daily Quote &amp; Mood Journal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f2f4f9;
+    --surface: #ffffff;
+    --ink: #1b2030;
+    --muted: #5d6578;
+    --line: #dfe3ee;
+    --accent: #5b6cf0;      /* changes with the selected mood */
+    --accent-ink: #ffffff;
+    --tint: rgba(91, 108, 240, .12);
+    --radius: 18px;
+    --display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+    --body: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151f;
+      --surface: #1b2030;
+      --ink: #eef0f7;
+      --muted: #a2a9bd;
+      --line: #2c3348;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { color-scheme: light dark; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: var(--body);
+    color: var(--ink);
+    background: var(--bg);
+    background-image: radial-gradient(900px 420px at 50% -120px, var(--tint), transparent 70%);
+    transition: background-image .5s ease;
+    line-height: 1.55;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 40px 20px 64px; }
+  h1, h2 { font-family: var(--display); margin: 0; letter-spacing: -.01em; }
+  h1 { font-size: clamp(1.7rem, 5vw, 2.3rem); }
+  h2 { font-size: 1.25rem; }
+  .sub { color: var(--muted); margin: 6px 0 28px; }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+
+  /* Quote */
+  .quote { border-left: 5px solid var(--accent); transition: border-color .4s ease; }
+  .quote blockquote {
+    margin: 0 0 14px;
+    font-family: var(--display);
+    font-weight: 500;
+    font-size: clamp(1.3rem, 4vw, 1.75rem);
+    line-height: 1.3;
+  }
+  .quote .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .quote cite { color: var(--muted); font-style: normal; }
+  .link-btn {
+    background: none; border: 0; padding: 6px 2px; cursor: pointer;
+    color: var(--accent); font: inherit; font-weight: 600;
+  }
+  .link-btn:hover { text-decoration: underline; }
+
+  /* Moods */
+  .moods { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 14px 0 20px; }
+  .mood {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 14px 6px; cursor: pointer;
+    background: var(--bg); color: var(--ink);
+    border: 2px solid var(--line); border-radius: 14px;
+    font: inherit; font-weight: 600;
+    transition: transform .15s ease, border-color .2s ease, background .2s ease;
+  }
+  .mood .emoji { font-size: 1.6rem; line-height: 1; }
+  .mood:hover { transform: translateY(-2px); }
+  .mood[aria-pressed="true"] { border-color: var(--mc); background: color-mix(in srgb, var(--mc) 16%, var(--surface)); }
+  .mood[data-mood="Happy"]    { --mc: #f2b531; }
+  .mood[data-mood="Calm"]     { --mc: #3fa7a0; }
+  .mood[data-mood="Focused"]  { --mc: #5b6cf0; }
+  .mood[data-mood="Stressed"] { --mc: #e4584f; }
+
+  label { font-weight: 600; display: block; margin-bottom: 6px; }
+  textarea {
+    width: 100%; min-height: 110px; resize: vertical;
+    padding: 12px 14px; font: inherit; color: var(--ink);
+    background: var(--bg); border: 2px solid var(--line); border-radius: 12px;
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  .actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+  .count { color: var(--muted); font-size: .9rem; }
+  .msg { min-height: 1.4em; margin: 10px 0 0; font-size: .95rem; color: var(--muted); }
+  .msg.error { color: #e4584f; }
+
+  .btn {
+    background: var(--accent); color: var(--accent-ink);
+    border: 0; border-radius: 12px; padding: 12px 24px;
+    font: inherit; font-weight: 600; cursor: pointer;
+    transition: filter .2s ease, background .4s ease;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  /* Entries */
+  .entries-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
+  .entry { display: flex; gap: 14px; padding: 16px 0; border-top: 1px solid var(--line); }
+  .entry:first-child { border-top: 0; padding-top: 0; }
+  .dot {
+    flex: none; width: 44px; height: 44px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 1.35rem;
+    background: color-mix(in srgb, var(--mc) 20%, var(--surface));
+    border: 2px solid var(--mc);
+  }
+  .entry-body { flex: 1; min-width: 0; }
+  .entry-top { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .entry-mood { font-weight: 600; }
+  .entry time { color: var(--muted); font-size: .88rem; }
+  .entry p { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .del {
+    align-self: flex-start; background: none; border: 0; cursor: pointer;
+    color: var(--muted); font: inherit; font-size: .9rem; padding: 4px 8px; border-radius: 8px;
+  }
+  .del:hover { color: #e4584f; background: color-mix(in srgb, #e4584f 12%, transparent); }
+  .empty { color: var(--muted); margin: 0; }
+
+  @media (max-width: 520px) {
+    .wrap { padding: 28px 14px 48px; }
+    .card { padding: 18px; }
+    .moods { grid-template-columns: repeat(2, 1fr); }
+    .btn { width: 100%; }
+    .actions { flex-direction: column-reverse; align-items: stretch; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <h1>Daily Quote &amp; Mood Journal</h1>
+  <p class="sub" id="today"></p>
+
+  <section class="card quote" aria-live="polite">
+    <blockquote id="quoteText"></blockquote>
+    <div class="row">
+      <cite id="quoteAuthor"></cite>
+      <button class="link-btn" id="newQuote" type="button">Show another quote</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>How are you feeling?</h2>
+    <div class="moods" id="moods" role="group" aria-label="Choose your mood"></div>
+
+    <label for="note">Journal note</label>
+    <textarea id="note" maxlength="500" placeholder="What's on your mind today?"></textarea>
+    <div class="actions">
+      <span class="count" id="count">0 / 500</span>
+      <button class="btn" id="save" type="button">Save entry</button>
+    </div>
+    <p class="msg" id="msg" role="status"></p>
+  </section>
+
+  <section class="card">
+    <div class="entries-head">
+      <h2>Past entries</h2>
+      <span class="count" id="total"></span>
+    </div>
+    <div id="entries"></div>
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+
+  var STORAGE_KEY = "dqmj.entries.v1";
+  var MOODS = [
+    { name: "Happy",    emoji: "😊", color: "#f2b531", ink: "#1b2030" },
+    { name: "Calm",     emoji: "😌", color: "#3fa7a0", ink: "#ffffff" },
+    { name: "Focused",  emoji: "🎯", color: "#5b6cf0", ink: "#ffffff" },
+    { name: "Stressed", emoji: "😣", color: "#e4584f", ink: "#ffffff" }
+  ];
+  var QUOTES = [
+    { t: "The secret of getting ahead is getting started.", a: "Mark Twain" },
+    { t: "Well begun is half done.", a: "Aristotle" },
+    { t: "What we think, we become.", a: "Buddha" },
+    { t: "It always seems impossible until it's done.", a: "Nelson Mandela" },
+    { t: "You have power over your mind, not outside events.", a: "Marcus Aurelius" },
+    { t: "The journey of a thousand miles begins with a single step.", a: "Lao Tzu" },
+    { t: "Act as if what you do makes a difference. It does.", a: "William James" },
+    { t: "Happiness depends upon ourselves.", a: "Aristotle" },
+    { t: "Do what you can, with what you have, where you are.", a: "Theodore Roosevelt" },
+    { t: "Nothing in life is to be feared, it is only to be understood.", a: "Marie Curie" },
+    { t: "No one can make you feel inferior without your consent.", a: "Eleanor Roosevelt" },
+    { t: "In the middle of difficulty lies opportunity.", a: "Albert Einstein" },
+    { t: "Quiet the mind, and the soul will speak.", a: "Ma Jaya Sati Bhagavati" },
+    { t: "Knowing yourself is the beginning of all wisdom.", a: "Aristotle" },
+    { t: "Small deeds done are better than great deeds planned.", a: "Peter Marshall" },
+    { t: "The best way out is always through.", a: "Robert Frost" },
+    { t: "Fall seven times, stand up eight.", a: "Japanese proverb" },
+    { t: "Be kind, for everyone you meet is fighting a hard battle.", a: "Ian Maclaren" }
+  ];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var selected = null;
+  var memoryStore = null; // fallback if localStorage is blocked
+
+  /* ---------- Storage ---------- */
+  function load() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      var list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list : [];
+    } catch (e) {
+      return memoryStore || [];
+    }
+  }
+  function persist(list) {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); }
+    catch (e) { memoryStore = list; showMsg("Storage is blocked, so entries will be lost when you close this tab.", true); }
+  }
+
+  /* ---------- Quote ---------- */
+  var quoteIndex;
+  function dayIndex() {
+    var d = new Date();
+    var start = new Date(d.getFullYear(), 0, 0);
+    return Math.floor((d - start) / 86400000) % QUOTES.length;
+  }
+  function renderQuote() {
+    var q = QUOTES[quoteIndex];
+    $("quoteText").textContent = "\u201C" + q.t + "\u201D";
+    $("quoteAuthor").textContent = "\u2014 " + q.a;
+  }
+  $("newQuote").addEventListener("click", function () {
+    var next;
+    do { next = Math.floor(Math.random() * QUOTES.length); } while (next === quoteIndex && QUOTES.length > 1);
+    quoteIndex = next;
+    renderQuote();
+  });
+
+  /* ---------- Mood selector ---------- */
+  function applyTheme(mood) {
+    var root = document.documentElement.style;
+    var color = mood ? mood.color : "#5b6cf0";
+    root.setProperty("--accent", color);
+    root.setProperty("--accent-ink", mood ? mood.ink : "#ffffff");
+    root.setProperty("--tint", color + "26");
+  }
+  function buildMoods() {
+    var box = $("moods");
+    MOODS.forEach(function (m) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "mood";
+      b.dataset.mood = m.name;
+      b.setAttribute("aria-pressed", "false");
+      var e = document.createElement("span");
+      e.className = "emoji";
+      e.textContent = m.emoji;
+      var l = document.createElement("span");
+      l.textContent = m.name;
+      b.appendChild(e);
+      b.appendChild(l);
+      b.addEventListener("click", function () {
+        selected = m;
+        box.querySelectorAll(".mood").forEach(function (x) {
+          x.setAttribute("aria-pressed", String(x === b));
+        });
+        applyTheme(m);
+        showMsg("");
+      });
+      box.appendChild(b);
+    });
+  }
+
+  /* ---------- Entries ---------- */
+  function showMsg(text, isError) {
+    var m = $("msg");
+    m.textContent = text;
+    m.className = "msg" + (isError ? " error" : "");
+  }
+  function moodByName(n) {
+    return MOODS.filter(function (m) { return m.name === n; })[0] || MOODS[0];
+  }
+  function formatDate(ts) {
+    return new Date(ts).toLocaleString(undefined, {
+      weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit"
+    });
+  }
+  function renderEntries() {
+    var list = load();
+    var box = $("entries");
+    box.textContent = "";
+    $("total").textContent = list.length ? list.length + (list.length === 1 ? " entry" : " entries") : "";
+
+    if (!list.length) {
+      var p = document.createElement("p");
+      p.className = "empty";
+      p.textContent = "No entries yet. Pick a mood and write your first note above.";
+      box.appendChild(p);
+      return;
+    }
+    list.forEach(function (en) {
+      var m = moodByName(en.mood);
+      var row = document.createElement("article");
+      row.className = "entry";
+      row.style.setProperty("--mc", m.color);
+
+      var dot = document.createElement("div");
+      dot.className = "dot";
+      dot.textContent = m.emoji;
+
+      var body = document.createElement("div");
+      body.className = "entry-body";
+      var top = document.createElement("div");
+      top.className = "entry-top";
+      var name = document.createElement("span");
+      name.className = "entry-mood";
+      name.textContent = m.name;
+      var time = document.createElement("time");
+      time.dateTime = new Date(en.ts).toISOString();
+      time.textContent = formatDate(en.ts);
+      top.appendChild(name);
+      top.appendChild(time);
+      body.appendChild(top);
+      if (en.note) {
+        var note = document.createElement("p");
+        note.textContent = en.note;
+        body.appendChild(note);
+      }
+
+      var del = document.createElement("button");
+      del.type = "button";
+      del.className = "del";
+      del.textContent = "Delete";
+      del.setAttribute("aria-label", "Delete " + m.name + " entry from " + formatDate(en.ts));
+      del.addEventListener("click", function () {
+        persist(load().filter(function (x) { return x.id !== en.id; }));
+        renderEntries();
+      });
+
+      row.appendChild(dot);
+      row.appendChild(body);
+      row.appendChild(del);
+      box.appendChild(row);
+    });
+  }
+
+  function save() {
+    var note = $("note").value.trim();
+    if (!selected) { showMsg("Pick a mood before saving.", true); return; }
+    if (!note) { showMsg("Write a short note before saving.", true); return; }
+    var list = load();
+    list.unshift({
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
+      mood: selected.name,
+      note: note,
+      ts: Date.now()
+    });
+    persist(list);
+    $("note").value = "";
+    updateCount();
+    renderEntries();
+    showMsg("Entry saved.");
+  }
+
+  function updateCount() {
+    $("count").textContent = $("note").value.length + " / 500";
+  }
+
+  /* ---------- Init ---------- */
+  $("today").textContent = new Date().toLocaleDateString(undefined, {
+    weekday: "long", year: "numeric", month: "long", day: "numeric"
+  });
+  quoteIndex = dayIndex();
+  renderQuote();
+  buildMoods();
+  renderEntries();
+  $("save").addEventListener("click", save);
+  $("note").addEventListener("input", updateCount);
+  $("note").addEventListener("keydown", function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") save();
+  });
+})();
+</script>
+</body>
+</html>
